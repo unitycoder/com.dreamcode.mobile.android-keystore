@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.2} - 20.01.2026
+- Convert UI Toolkit to UGUI
+- Remove Donate button (lnik was broken)
+- Validate keypath on save
+
 ## [1.3.1] - 2024-06-30
 - Fixed keystore repository configuration on Preprocess
   

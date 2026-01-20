@@ -1,144 +1,137 @@
-﻿using System;
+﻿using DreamCode.AutoKeystore.Editor.Configuration;
 using System.IO;
-using DreamCode.AutoKeystore.Editor.Configuration;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace DreamCode.AutoKeystore.Editor.UI
 {
     internal class KeystoreEditorWindow : EditorWindow
     {
-        private static readonly Vector2 _windowMinSize = new(200, 380);
-        private const string PackagePath = "Packages/com.dreamcode.mobile.android-keystore";
-        private const string AssetsPath = PackagePath + "/Editor/Assets";
-        private const string LayoutsPath = AssetsPath + "/Layouts";
-        private const string StylesPath = AssetsPath + "/Styles";
-        private const string WindowLayoutPath = LayoutsPath + "/KeystoreWindow.uxml";
+        private static readonly Vector2 _windowMinSize = new(300, 200);
 
-        private TextField _keystoreName;
-        private TextField _keystorePass;
-        private TextField _keyaliasName;
-        private TextField _keyaliasPass;
-        private EnumField _repositoryField;
+        private string _keystoreName;
+        private string _keystorePass;
+        private string _keyaliasName;
+        private string _keyaliasPass;
         private KeystoreRepository _currentRepository;
 
-        [MenuItem("Tools/DreamCode/Android/AutoKeystore")]
+        private bool _showKeystorePass;
+        private bool _showKeyaliasPass;
+
+        [MenuItem("Tools/DreamCode/AutoKeystore")]
         internal static void ShowWindow()
         {
             var window = GetWindow<KeystoreEditorWindow>();
             window.titleContent.text = nameof(AutoKeystore);
             window.minSize = _windowMinSize;
+            window.Show();
         }
 
-        private void CreateGUI()
+        private void OnEnable()
         {
-            var visualTree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(WindowLayoutPath);
-            visualTree.CloneTree(rootVisualElement);
-            SetupWindowLayout();
             LoadSettings();
-            RegisterListeners();
         }
 
-        private void OnDisable()
+        private void OnGUI()
         {
-            RemoveListeners();
-        }
+            EditorGUILayout.LabelField("Android Keystore Settings", EditorStyles.boldLabel);
+            EditorGUILayout.Space();
 
-        private void RegisterListeners()
-        {
-            rootVisualElement.Q<Button>("SaveBtn").clicked += OnSaveBtnClicked;
-            rootVisualElement.Q<Button>("DonateBtn").clicked += OnDonateBtnClicked;
-            _keystorePass.RegisterCallback<FocusInEvent>(OnKeystorePassFocusIn);
-            _keystorePass.RegisterCallback<FocusOutEvent>(OnKeystorePassFocusOut);
-            _keyaliasPass.RegisterCallback<FocusInEvent>(OnKeyaliasPassFocusIn);
-            _keyaliasPass.RegisterCallback<FocusOutEvent>(OnKeyaliasPassFocusOut);
-            _repositoryField.RegisterValueChangedCallback(OnRepositoryFieldChanged);
-        }
+            // Repository
+            EditorGUI.BeginChangeCheck();
+            _currentRepository = (KeystoreRepository)EditorGUILayout.EnumPopup("Storage", _currentRepository);
+            if (EditorGUI.EndChangeCheck())
+            {
+                KeystoreSettings.SetupRepository(_currentRepository);
+            }
 
-        private void RemoveListeners()
-        {
-            rootVisualElement.Q<Button>("SaveBtn").clicked -= OnSaveBtnClicked;
-            rootVisualElement.Q<Button>("DonateBtn").clicked -= OnDonateBtnClicked;
-            _keystorePass.UnregisterCallback<FocusInEvent>(OnKeystorePassFocusIn);
-            _keystorePass.UnregisterCallback<FocusOutEvent>(OnKeystorePassFocusOut);
-            _keyaliasPass.UnregisterCallback<FocusInEvent>(OnKeyaliasPassFocusIn);
-            _keyaliasPass.UnregisterCallback<FocusOutEvent>(OnKeyaliasPassFocusOut);
-            _repositoryField.UnregisterValueChangedCallback(OnRepositoryFieldChanged);
-        }
+            EditorGUILayout.Space();
 
-        private void OnSaveBtnClicked()
-        {
-            SaveSettings();
-            Close();
-        }
+            // Keystore name (file name without extension)
+            _keystoreName = EditorGUILayout.TextField("Keystore Path (no extension)", _keystoreName);
 
-        private void OnDonateBtnClicked() => Application.OpenURL("https://punkto.me/eCUIF99");
+            // Keystore password
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PrefixLabel("Keystore Password");
+            if (_showKeystorePass)
+                _keystorePass = EditorGUILayout.TextField(_keystorePass);
+            else
+                _keystorePass = EditorGUILayout.PasswordField(_keystorePass);
+            _showKeystorePass = GUILayout.Toggle(_showKeystorePass, _showKeystorePass ? "Hide" : "Show", GUILayout.Width(50));
+            EditorGUILayout.EndHorizontal();
 
-        private void OnKeystorePassFocusIn(FocusInEvent e)
-        {
-            _keystorePass.isPasswordField = false;
-        }
+            // Keyalias name
+            _keyaliasName = EditorGUILayout.TextField("Keyalias Name", _keyaliasName);
 
-        private void OnKeystorePassFocusOut(FocusOutEvent evt)
-        {
-            _keystorePass.isPasswordField = true;
-        }
+            // Keyalias password
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PrefixLabel("Keyalias Password");
+            if (_showKeyaliasPass)
+                _keyaliasPass = EditorGUILayout.TextField(_keyaliasPass);
+            else
+                _keyaliasPass = EditorGUILayout.PasswordField(_keyaliasPass);
+            _showKeyaliasPass = GUILayout.Toggle(_showKeyaliasPass, _showKeyaliasPass ? "Hide" : "Show", GUILayout.Width(50));
+            EditorGUILayout.EndHorizontal();
 
-        private void OnKeyaliasPassFocusIn(FocusInEvent evt)
-        {
-            _keyaliasPass.isPasswordField = false;
-        }
+            EditorGUILayout.Space();
+            EditorGUILayout.BeginHorizontal();
 
-        private void OnKeyaliasPassFocusOut(FocusOutEvent evt)
-        {
-            _keyaliasPass.isPasswordField = true;
-        }
+            if (GUILayout.Button("Save", GUILayout.Height(24)))
+            {
+                if (SaveSettings())
+                {
+                    Close();
+                }
+            }
 
-        private void OnRepositoryFieldChanged(ChangeEvent<Enum> evt)
-        {
-            _currentRepository = (KeystoreRepository)evt.newValue;
-        }
+            // Removed button: link doesnt work
+            //if (GUILayout.Button("Donate", GUILayout.Height(24)))
+            //{
+            //    Application.OpenURL("https://punkto.me/eCUIF99");
+            //}
 
-        private void SetupWindowLayout()
-        {
-            _keystoreName = rootVisualElement.Q<TextField>("KeystorePath");
-            _keystorePass = rootVisualElement.Q<TextField>("KeystorePass");
-            _keystorePass.isPasswordField = true;
-            _keyaliasName = rootVisualElement.Q<TextField>("KeyaliasName");
-            _keyaliasPass = rootVisualElement.Q<TextField>("KeyaliasPass");
-            _keyaliasPass.isPasswordField = true;
-            _repositoryField = rootVisualElement.Q<EnumField>("Storage");
+            EditorGUILayout.EndHorizontal();
         }
 
         private void LoadSettings()
         {
-            var keystoreRepository = (KeystoreRepository)EditorPrefs.GetInt(
-                $"{PlayerSettings.applicationIdentifier}-{nameof(KeystoreRepository)}");
-            _repositoryField.Init(keystoreRepository);
-            KeystoreSettings.SetupRepository(keystoreRepository);
-
-            KeystoreSettings.Load();
-
-            _keystoreName.value = Path.GetFileNameWithoutExtension(KeystoreSettings.Name);
-            _keystorePass.value = KeystoreSettings.Password;
-            _keyaliasName.value = KeystoreSettings.AliasName;
-            _keyaliasPass.value = KeystoreSettings.AliasPassword;
-        }
-
-        private void SaveSettings()
-        {
-            var keystoreName = _keystoreName.value;
-            var keystorePass = _keystorePass.value;
-            var keyaliasName = _keyaliasName.value;
-            var keyaliasPass = _keyaliasPass.value;
-
-            EditorPrefs.SetInt(
-                $"{PlayerSettings.applicationIdentifier}-{nameof(KeystoreRepository)}",
-                (int)_currentRepository);
+            var repoKey = $"{PlayerSettings.applicationIdentifier}-{nameof(KeystoreRepository)}";
+            var repoInt = EditorPrefs.GetInt(repoKey, 0);
+            _currentRepository = (KeystoreRepository)repoInt;
 
             KeystoreSettings.SetupRepository(_currentRepository);
-            KeystoreSettings.Save(keystoreName, keystorePass, keyaliasName, keyaliasPass);
+            KeystoreSettings.Load();
+
+            _keystoreName = Path.GetFileNameWithoutExtension(KeystoreSettings.Name);
+            _keystorePass = KeystoreSettings.Password;
+            _keyaliasName = KeystoreSettings.AliasName;
+            _keyaliasPass = KeystoreSettings.AliasPassword;
+        }
+
+        private bool SaveSettings()
+        {
+            var repoKey = $"{PlayerSettings.applicationIdentifier}-{nameof(KeystoreRepository)}";
+            EditorPrefs.SetInt(repoKey, (int)_currentRepository);
+
+            KeystoreSettings.SetupRepository(_currentRepository);
+
+            var keystorePathWithoutExtension = _keystoreName ?? string.Empty;
+            var keystoreFileName = keystorePathWithoutExtension + ".keystore";
+
+            var projectDir = Path.GetDirectoryName(Application.dataPath);
+            var candidatePath = Path.Combine(projectDir, keystoreFileName);
+
+            if (!File.Exists(candidatePath))
+            {
+                EditorUtility.DisplayDialog(
+                    "Keystore not found",
+                    $"The keystore file could not be found at:\n{candidatePath}\n\nPlease check the path and try again.",
+                    "OK");
+                return false; // invalid, keep window open
+            }
+
+            KeystoreSettings.Save(_keystoreName, _keystorePass, _keyaliasName, _keyaliasPass);
+            return true; // success, caller can close window
         }
     }
 }
