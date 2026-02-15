@@ -3,7 +3,9 @@
 - Converted UI Toolkit to UGUI
 - Added validation for keystore path
 - Install this fork with UPM, Add git package:<br>
-```https://github.com/unitycoder/com.dreamcode.mobile.android-keystore.git```
+
+######
+    https://github.com/unitycoder/com.dreamcode.mobile.android-keystore.git
 
 # Unity AutoKeystore
 Allows store android keystore between sessions, without manual input everytime.
